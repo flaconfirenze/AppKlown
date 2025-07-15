@@ -603,6 +603,7 @@ function analyzeParentChildRelationships() {
         'bundleAppData': ['bundleAppDataPath', 'bundleAppDataPassword', 'bundleAppDataEncryptCertificate', 'restoreAppDataOnEveryStart'],
         'deleteOnExit': ['deleteFilesDirectoriesOnExit', 'securelyDeleteFilesDirectoriesOnExit'],
         'changeInstallUpdateTime': ['customInstallUpdateTime', 'randomizeUserCreationTime', 'relativeInstallUpdateTime', 'relativeInstallUpdateTimeUnit'],
+        'fakeTime': ['fakeTimeHour', 'fakeTimeMinute'],
         'randomizeBuildProps': ['filterDevicesDatabase', 'devicesDatabaseFilters', 'devicesDatabaseUseAndroidVersion', 'devicesDatabaseSdkVersions', 'randomizeBuildPropsDeviceNamePrefix'],
         'spoofLocation': ['spoofLocationLatitude', 'spoofLocationLongitude', 'spoofRandomLocation', 'spoofLocationUseIpLocation', 'spoofLocationApi', 'spoofLocationCalculateBearing', 'spoofLocationCompatibilityMode', 'spoofLocationInterval', 'spoofLocationShareLocationReceiver', 'spoofLocationShowSpoofLocationNotification', 'spoofLocationSimulatePositionalUncertainty', 'favoriteLocationsShowDistance'],
         'webViewPrivacyOptions': ['webViewDisableWebRtc', 'webViewDisableWebGl', 'webViewDisableAudioContext'],
@@ -1103,6 +1104,9 @@ function buildParentEditor(key, category) {
     }
     if (key === 'changeInstallUpdateTime') {
         return buildInstallTimeEditor(key, category);
+    }
+    if (key === 'fakeTime') {
+        return buildFakeTimeEditor(key, category);
     }
 
     const container = document.createElement('div');
@@ -1957,6 +1961,30 @@ function buildRandomizeBuildPropsEditor(key, category) {
     const prefixInput = buildSimpleControl('Device name prefix', settings.randomizeBuildPropsDeviceNamePrefix, `${category}.randomizeBuildPropsDeviceNamePrefix`, category);
     prefixInput.style.marginTop = '20px';
     childContainer.appendChild(prefixInput);
+
+    return container;
+}
+
+function buildFakeTimeEditor(key, category) {
+    const container = document.createElement('div');
+    const settings = jsonConfig[category];
+
+    const mainToggle = buildSimpleControl('Enabled', settings[key], `${category}.${key}`, category, true);
+    container.appendChild(mainToggle);
+
+    const childContainer = document.createElement('div');
+    childContainer.className = 'editor-child-settings';
+    container.appendChild(childContainer);
+
+    const updateVisibility = (enabled) => { childContainer.style.display = enabled ? 'block' : 'none'; };
+    updateVisibility(settings[key]);
+    mainToggle.querySelector('input').addEventListener('change', e => {
+        settings[key] = e.target.checked;
+        updateVisibility(e.target.checked);
+    });
+
+    childContainer.appendChild(buildSimpleControl('Hour', settings.fakeTimeHour || '', `${category}.fakeTimeHour`, category));
+    childContainer.appendChild(buildSimpleControl('Minute', settings.fakeTimeMinute || '', `${category}.fakeTimeMinute`, category));
 
     return container;
 }

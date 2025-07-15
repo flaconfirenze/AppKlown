@@ -390,7 +390,8 @@ Asus,asus,Zenfone 10,ASUS_AI2302,34
 // CRITICAL SECURITY WARNING: This key is public. Any interaction should be proxied through your server.
 const BIN_ID = '67fe9e1f8960c979a585d694';
 const API_KEY = '$2a$10$SgT4qoOKXP6CD4u1jPEpduwi.2NbrCqV2u71AaL7mGaW.77CmNU7u';
-const DEVICE_PROFILES_URL = '?action=get_devices'; // UPDATED: Fetch via our PHP proxy
+// Device profiles list containing common build.prop values
+const DEVICE_PROFILES_URL = 'https://pastebin.com/raw/CKRUEDnp';
 
 let jsonConfig = {};
 let originalJsonConfig = {};
@@ -506,52 +507,49 @@ function parseDeviceData() {
         .filter(Boolean);
 }
 
-// Function to fetch and parse device profiles via our PHP proxy
+
+// Fetch and parse device profiles from Pastebin
 async function fetchAndParseDeviceProfiles() {
     try {
         const response = await fetch(DEVICE_PROFILES_URL);
         if (!response.ok) {
-            console.error('Failed to fetch device profiles via proxy.', await response.text());
+            console.error('Failed to fetch device profiles.', await response.text());
             return;
         }
         const text = await response.text();
 
-        // Maps Pastebin keys to our config keys
         const propMapping = {
             'ro.product.name': 'buildPropsDeviceName',
             'ro.product.manufacturer': 'buildPropsManufacturer',
             'ro.product.brand': 'buildPropsBrand',
             'ro.product.model': 'buildPropsModel',
             'ro.build.product': 'buildPropsProduct',
-            'ro.build.device': 'buildPropsDevice',
+            'ro.product.device': 'buildPropsDevice',
             'ro.product.board': 'buildPropsBoard',
             'ro.boot.radio': 'buildPropsRadio',
             'ro.hardware': 'buildPropsHardware'
         };
 
-        const profilesText = text.split(/#\s*#+/).filter(p => p.trim() !== '');
-
-        deviceProfiles = profilesText.map(profileText => {
-            const lines = profileText.trim().split('\n');
-            const displayNameLine = lines.find(l => l.startsWith('# ') && !l.startsWith('##'));
-            const displayName = displayNameLine ? displayNameLine.replace('# ', '').trim() : 'Unnamed Profile';
-
-            const props = {};
-            lines.forEach(line => {
-                if (line.startsWith('ro.')) {
-                    const parts = line.split('=', 2);
-                    if (parts.length === 2) {
-                        const key = parts[0].trim();
-                        const value = parts[1].trim();
-                        const mappedKey = propMapping[key];
-                        if (mappedKey) {
-                            props[mappedKey] = value;
-                        }
-                    }
+        deviceProfiles = [];
+        let currentProfile = null;
+        text.split(/\n+/).forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            if (trimmed.startsWith('#') && trimmed.includes('(\"')) {
+                if (currentProfile) deviceProfiles.push(currentProfile);
+                currentProfile = { displayName: trimmed.replace(/^#\s*/, '').trim(), props: {} };
+            } else if (trimmed.startsWith('#')) {
+                return; // ignore delimiter lines
+            } else if (currentProfile && trimmed.includes('=')) {
+                const parts = trimmed.split('=', 2);
+                if (parts.length === 2) {
+                    const key = parts[0].trim();
+                    const mapped = propMapping[key];
+                    if (mapped) currentProfile.props[mapped] = parts[1].trim();
                 }
-            });
-            return { displayName, props };
+            }
         });
+        if (currentProfile) deviceProfiles.push(currentProfile);
 
     } catch (error) {
         console.error('Error fetching or parsing device profiles:', error);

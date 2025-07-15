@@ -412,7 +412,7 @@ const keysWithCustomOption = [
 
 const NON_INTERACTIVE_DIRECTORY_KEYS = ['addPermissions', 'addProviders', 'addReceivers','addServices','addActivities','stringsProperties','serialFormat'];
 // MODIFIED: Added bundleAppData and deleteOnExit to the custom editors list
-const CUSTOM_EDITORS = ['webViewUrlDataFilterList', 'overrideSharedPreferences', 'customBuildProps', 'webViewCookies', 'webViewOverrideUrlLoadingList', 'skipDialogsStrings', 'bundleFilesDirectories', 'bundleInternalFilesDirectories', 'hostsBlocker', 'bundleAppData', 'deleteOnExit'];
+const CUSTOM_EDITORS = ['webViewUrlDataFilterList', 'overrideSharedPreferences', 'customBuildProps', 'webViewCookies', 'webViewOverrideUrlLoadingList', 'skipDialogsStrings', 'bundleFilesDirectories', 'bundleInternalFilesDirectories', 'hostsBlocker', 'bundleAppData', 'deleteOnExit', 'fakeDate'];
 
 const compoundSettingsMap = new Map([
     ['dnsOverHttps', ['dnsOverHttpsCustomUrl', 'dnsOverHttpsSilent']],
@@ -607,7 +607,8 @@ function analyzeParentChildRelationships() {
         'spoofLocation': ['spoofLocationLatitude', 'spoofLocationLongitude', 'spoofRandomLocation', 'spoofLocationUseIpLocation', 'spoofLocationApi', 'spoofLocationCalculateBearing', 'spoofLocationCompatibilityMode', 'spoofLocationInterval', 'spoofLocationShareLocationReceiver', 'spoofLocationShowSpoofLocationNotification', 'spoofLocationSimulatePositionalUncertainty', 'favoriteLocationsShowDistance'],
         'webViewPrivacyOptions': ['webViewDisableWebRtc', 'webViewDisableWebGl', 'webViewDisableAudioContext'],
         'webViewUrlDataMonitor': ['webViewUrlDataMonitorAutoCopy', 'webViewUrlDataMonitorAutoOpen', 'webViewUrlDataMonitorFilter', 'webViewUrlDataMonitorFilterStrings', 'webViewUrlDataMonitorRegularExpression', 'webViewUrlDataMonitorShowJavaScriptUrls', 'webViewUrlDataMonitorShowOverrideUrlLoading', 'webViewUrlDataMonitorUrlDecode'],
-        'showWebViewSourceCode': ['showWebViewIFrameSourceCode', 'showWebViewSourceCodeFilter', 'showWebViewSourceCodeFilterStrings', 'showWebViewSourceCodeRegularExpression']
+        'showWebViewSourceCode': ['showWebViewIFrameSourceCode', 'showWebViewSourceCodeFilter', 'showWebViewSourceCodeFilterStrings', 'showWebViewSourceCodeRegularExpression'],
+        'fakeDate': ['fakeDateDay', 'fakeDateMonth', 'fakeDateYear', 'fakeDateIncrementDateByDays', 'fakeDateIncrementDateOnExit']
     };
     for (const category in jsonConfig) {
         const settings = jsonConfig[category];
@@ -708,6 +709,13 @@ function getSummaryText(key, value, category) {
             return `${paths.length} item(s)`;
         }
         return "Disabled";
+    }
+    if (key === 'fakeDate') {
+        if (!value) return 'Disabled';
+        const y = jsonConfig[category].fakeDateYear;
+        const m = String(jsonConfig[category].fakeDateMonth).padStart(2, '0');
+        const d = String(jsonConfig[category].fakeDateDay).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
     if (CUSTOM_EDITORS.includes(key)) {
         if (key === 'hostsBlocker' || key === 'bundleAppData') {
@@ -830,6 +838,8 @@ function createEditorControls(key, category) {
         else if (key === 'skipDialogsStrings') container.appendChild(buildSkipDialogsEditor(key, category));
         else if (key === 'bundleFilesDirectories' || key === 'bundleInternalFilesDirectories') {
             container.appendChild(buildPathPickerEditor(key, category));
+        } else if (key === 'fakeDate') {
+            container.appendChild(buildFakeDateEditor(key, category));
         }
     }
     else {
@@ -2356,6 +2366,71 @@ function buildWebViewCookieEditor(key, category) {
     container.appendChild(childContainer);
     childContainer.style.display = isEnabled ? 'block' : 'none';
 
+    return container;
+}
+
+function buildFakeDateEditor(key, category) {
+    const container = document.createElement('div');
+    const settings = jsonConfig[category];
+
+    ['fakeDateDay', 'fakeDateMonth', 'fakeDateYear', 'fakeDateIncrementDateByDays'].forEach(p => {
+        if (typeof settings[p] !== 'number') settings[p] = parseInt(settings[p] || '0', 10);
+    });
+    if (typeof settings.fakeDateIncrementDateOnExit !== 'boolean') settings.fakeDateIncrementDateOnExit = false;
+
+    const mainToggle = buildSimpleControl('Enabled', settings[key], `${category}.${key}`, category, false);
+    container.appendChild(mainToggle);
+
+    const childContainer = document.createElement('div');
+    childContainer.className = 'editor-child-settings';
+    mainToggle.querySelector('input').addEventListener('change', e => {
+        childContainer.style.display = e.target.checked ? 'block' : 'none';
+    });
+    childContainer.style.display = settings[key] ? 'block' : 'none';
+
+    const dateGroup = document.createElement('div');
+    dateGroup.className = 'editor-setting';
+    dateGroup.innerHTML = '<label class="editor-setting-label">Date</label>';
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+
+    const hiddenDay = document.createElement('input');
+    hiddenDay.type = 'hidden';
+    hiddenDay.dataset.path = `${category}.fakeDateDay`;
+    hiddenDay.value = settings.fakeDateDay;
+    const hiddenMonth = document.createElement('input');
+    hiddenMonth.type = 'hidden';
+    hiddenMonth.dataset.path = `${category}.fakeDateMonth`;
+    hiddenMonth.value = settings.fakeDateMonth;
+    const hiddenYear = document.createElement('input');
+    hiddenYear.type = 'hidden';
+    hiddenYear.dataset.path = `${category}.fakeDateYear`;
+    hiddenYear.value = settings.fakeDateYear;
+
+    if (settings.fakeDateYear && settings.fakeDateMonth && settings.fakeDateDay) {
+        const y = String(settings.fakeDateYear).padStart(4, '0');
+        const m = String(settings.fakeDateMonth).padStart(2, '0');
+        const d = String(settings.fakeDateDay).padStart(2, '0');
+        dateInput.value = `${y}-${m}-${d}`;
+    }
+    dateInput.onchange = () => {
+        const [y, m, d] = dateInput.value.split('-').map(Number);
+        settings.fakeDateYear = y || 0;
+        settings.fakeDateMonth = m || 0;
+        settings.fakeDateDay = d || 0;
+        hiddenYear.value = settings.fakeDateYear;
+        hiddenMonth.value = settings.fakeDateMonth;
+        hiddenDay.value = settings.fakeDateDay;
+    };
+    dateGroup.appendChild(dateInput);
+    childContainer.appendChild(dateGroup);
+
+    childContainer.append(hiddenDay, hiddenMonth, hiddenYear);
+
+    childContainer.appendChild(buildSimpleControl('fakeDateIncrementDateByDays', settings.fakeDateIncrementDateByDays, `${category}.fakeDateIncrementDateByDays`, category));
+    childContainer.appendChild(buildSimpleControl('fakeDateIncrementDateOnExit', settings.fakeDateIncrementDateOnExit, `${category}.fakeDateIncrementDateOnExit`, category));
+
+    container.appendChild(childContainer);
     return container;
 }
 
